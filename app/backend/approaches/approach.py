@@ -158,17 +158,15 @@ class Approach(ABC):
                 search_text=query_text or "", filter=filter, top=top, vector_queries=vectors
             )
 
-        if query_text.startswith("sourcefile eq"):
-            filter = f"{query_text}"
-            results = await self.search_client.search("", filter=filter, top=top)
-            print(f"\n\n\n########################################\nsearching by filename: {query_text}\n########################################\n\n\n")
-
-        if query_text.startswith("modified_on"):
-            if " and " in query_text:
-                query_text = query_text.replace(" and ", " and modified_on ")
-            filter = f"{query_text}"
-            results = await self.search_client.search("", filter=filter, top=10, select="sourcepage, modified_on")
+        if filter.startswith("modified_on"):
+            #filter = f"{filter} and {query_text}" if filter else f"{query_text}"
+            results = await self.search_client.search(search_text=query_text or "", filter=filter, top=top)
             print(f"\n\n\n########################################\nfilter by date: {filter}\n########################################\n\n\n")
+
+        if filter.startswith("sourcefile eq"):
+            #filter = f"{filter} and {query_text}" if filter else f"{query_text}"
+            results = await self.search_client.search(search_text=query_text or "", filter=filter, top=top)
+            print(f"\n\n\n########################################\nsearching by filename: {query_text}\n########################################\n\n\n")
 
         documents = []
         async for page in results.by_page():
@@ -214,7 +212,7 @@ class Approach(ABC):
             ]
         else:
             return [
-                (self.get_citation((doc.sourcepage or ""), use_image_citation)) + ": " + nonewlines(doc.content or "") + "; modified_on: " + nonewlines(doc.modified_on or "")
+                (self.get_citation((doc.sourcepage or ""), use_image_citation)) + ": " + nonewlines(doc.content or "") + "; last modified on: " + nonewlines(doc.modified_on or "")
                 for doc in results
             ]
 

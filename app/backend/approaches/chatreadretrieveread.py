@@ -127,14 +127,18 @@ class ChatReadRetrieveReadApproach(ChatApproach):
                     "type": "object",
                     "properties": {
                         "filenames": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "The filenames, like ['Paper.pdf', 'SuppInfo.pdf']"
                         },
-                        "description": "The filenames, like ['Paper.pdf', 'SuppInfo.pdf']"
+                        "search_query": {
+                            "type": "string",
+                            "description": "Query string to retrieve documents from azure search eg: 'Health care plan'",
                         }
                     },
-                    "required": ["filenames"]
+                    "required": ["filenames", "search_query"]
                     }
                 }
             },
@@ -142,14 +146,18 @@ class ChatReadRetrieveReadApproach(ChatApproach):
                 "type": "function",
                 "function": {
                     "name": "filter_by_modified_on",
-                    "description": "Retrieve DateTimeOffset from and OData condition term for the Azure AI Search index to filter on Date",
+                    "description": "Retrieve files from Azure AI Search filtered based on the timestamp of their last modification using an OData expression",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "modified_on": {
                                 "type": "string",
                                 "format": "date-time",
-                                "description": "Query string to retrieve DateTimeOffset and Odata-Condition from azure search eg: gt 2024-04-03T09:45:10.975Z. Converte any Datetime in the DateTimeOffset form, if no time is given set it to 00:00:00.000Z. You need to figure out the operator for the Odataexpression like gt, lt, eq, le, ge",
+                                "description": "OData expression to filter documents based on timestamp of the last modification. The time is needed in DateTimeOffset format and the operator for the Odata-Condition needs to be included eg: gt 2024-04-03T09:45:10.975Z. Converte any Datetime in the DateTimeOffset form, if no time is given set it to 00:00:00.000Z. You need to figure out the operator for the Odata expression like gt, lt, le, ge. Do not use eq",
+                            },
+                            "search_query": {
+                                "type": "string",
+                                "description": "An optional query string for filtering documents in Azure Search by topic. Leave this parameter empty for date-based filtering without a topic constraint. For example, to find documents edited between 1/1/2024 and today without specifying a topic, leave search_query blank. If looking for documents edited in the same period on a specific topic, like 'Gum', include it as the search_query value. This parameter accepts keywords or phrases relevant to the documents' content, enabling topic-specific searches.",
                             }
                         },
                         "required": ["modified_on"],
@@ -180,7 +188,10 @@ class ChatReadRetrieveReadApproach(ChatApproach):
             tool_choice="auto",
         )
 
-        query_text = self.get_search_query(chat_completion, original_user_query)
+        query_text, function_filter = self.get_search_query(chat_completion, original_user_query)
+
+        if function_filter:
+            filter = f"{filter} and {function_filter}" if filter else f"{function_filter}"
 
         # STEP 2: Retrieve relevant documents from the search index with the GPT optimized query
 

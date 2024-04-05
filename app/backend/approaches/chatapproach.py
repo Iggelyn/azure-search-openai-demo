@@ -83,15 +83,19 @@ class ChatApproach(Approach, ABC):
                         return search_query
                 if function.name == "filter_by_modified_on":
                     arg = json.loads(function.arguments)
-                    search_query = arg.get("modified_on")
-                    x = f"modified_on {search_query}"
-                    return x
+                    search_query = arg.get("search_query")
+                    pre_filter = arg.get("modified_on")
+                    if " and " in pre_filter:
+                        pre_filter = pre_filter.replace(" and ", " and modified_on ")
+                    filter = f"modified_on {pre_filter}"
+                    return search_query, filter
                 if function.name == "search_by_filename":
                     arg = json.loads(function.arguments)
+                    search_query = arg.get("search_query")
                     filenames = arg.get("filenames", [])
-                if filenames:
-                    search_queries = [f"sourcefile eq '{filename}'" for filename in filenames]
-                    return " or ".join(search_queries)
+                    if filenames:
+                        filter = " or ".join([f"sourcefile eq '{filename}'" for filename in filenames])
+                    return search_query, filter
         elif query_text := response_message.content:
             if query_text.strip() != self.NO_RESPONSE:
                 return query_text
