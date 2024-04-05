@@ -119,6 +119,7 @@ class Approach(ABC):
         self.vision_endpoint = vision_endpoint
         self.vision_token_provider = vision_token_provider
 
+
     def build_filter(self, overrides: dict[str, Any], auth_claims: dict[str, Any]) -> Optional[str]:
         exclude_category = overrides.get("exclude_category")
         security_filter = self.auth_helper.build_security_filters(overrides, auth_claims)
@@ -140,9 +141,13 @@ class Approach(ABC):
         minimum_search_score: Optional[float],
         minimum_reranker_score: Optional[float],
     ) -> List[Document]:
-        # Use semantic ranker if requested and if retrieval mode is text or hybrid (vectors + text)
+        # Initialisierung von Zwischenvariablen für die Ergebnisse
+        semantic_results = None
+        vector_results = None
+
+        # Unterscheidung der Suchanfragen
         if use_semantic_ranker and query_text:
-            results = await self.search_client.search(
+            semantic_results = await self.search_client.search(
                 search_text=query_text,
                 filter=filter,
                 query_type=QueryType.SEMANTIC,
@@ -154,51 +159,55 @@ class Approach(ABC):
                 vector_queries=vectors,
             )
         else:
-            results = await self.search_client.search(
+            vector_results = await self.search_client.search(
                 search_text=query_text or "", filter=filter, top=top, vector_queries=vectors
             )
 
-        if filter.startswith("modified_on"):
-            #filter = f"{filter} and {query_text}" if filter else f"{query_text}"
-            results = await self.search_client.search(search_text=query_text or "", filter=filter, top=top)
-            print(f"\n\n\n########################################\nfilter by date: {filter}\n########################################\n\n\n")
+        fuction_filter = None
+        if filter and filter.startswith("modified_on"):
+            fuction_filter = await self.search_client.search(search_text=query_text or "", filter=filter, top=top)
+            print(f"\n\n\n########################################\nfilter by date: {fuction_filter}\n########################################\n\n\n")
 
-        if filter.startswith("sourcefile eq"):
-            #filter = f"{filter} and {query_text}" if filter else f"{query_text}"
-            results = await self.search_client.search(search_text=query_text or "", filter=filter, top=top)
-            print(f"\n\n\n########################################\nsearching by filename: {query_text}\n########################################\n\n\n")
+        if filter and filter.startswith("sourcefile eq"):
+            fuction_filter = await self.search_client.search(search_text=query_text or "", filter=filter, top=top)
+            print(f"\n\n\n########################################\nsearching by filename: {fuction_filter}\n########################################\n\n\n")
 
+        # Sammeln und Verarbeiten der Ergebnisse aus den Zwischenvariablen
         documents = []
-        async for page in results.by_page():
-            async for document in page:
-                documents.append(
-                    Document(
-                        id=document.get("id"),
-                        content=document.get("content"),
-                        embedding=document.get("embedding"),
-                        image_embedding=document.get("imageEmbedding"),
-                        category=document.get("category"),
-                        sourcepage=document.get("sourcepage"),
-                        sourcefile=document.get("sourcefile"),
-                        modified_on=document.get("modified_on"),
-                        oids=document.get("oids"),
-                        groups=document.get("groups"),
-                        captions=cast(List[QueryCaptionResult], document.get("@search.captions")),
-                        score=document.get("@search.score"),
-                        reranker_score=document.get("@search.reranker_score"),
-                    )
-                )
+        if fuction_filter is not None:
+            semantic_results = None
+            vector_results = None
+        for results in [fuction_filter, semantic_results, vector_results]:
+            if results is not None:
+                async for page in results.by_page():
+                    async for document in page:
+                        documents.append(
+                            Document(
+                                id=document.get("id"),
+                                content=document.get("content"),
+                                embedding=document.get("embedding"),
+                                image_embedding=document.get("imageEmbedding"),
+                                category=document.get("category"),
+                                sourcepage=document.get("sourcepage"),
+                                sourcefile=document.get("sourcefile"),
+                                modified_on=document.get("modified_on"),
+                                oids=document.get("oids"),
+                                groups=document.get("groups"),
+                                captions=cast(List[QueryCaptionResult], document.get("@search.captions")),
+                                score=document.get("@search.score"),
+                                reranker_score=document.get("@search.reranker_score"),
+                            )
+                        )
 
-            qualified_documents = [
-                doc
-                for doc in documents
-                if (
-                    (doc.score or 0) >= (minimum_search_score or 0)
-                    and (doc.reranker_score or 0) >= (minimum_reranker_score or 0)
-                )
-            ]
+        qualified_documents = [
+            doc for doc in documents if (
+                (doc.score or 0) >= (minimum_search_score or 0)
+                and (doc.reranker_score or 0) >= (minimum_reranker_score or 0)
+            )
+        ]
 
         return qualified_documents
+
 
     def get_sources_content(
         self, results: List[Document], use_semantic_captions: bool, use_image_citation: bool

@@ -80,7 +80,8 @@ class ChatApproach(Approach, ABC):
                     arg = json.loads(function.arguments)
                     search_query = arg.get("search_query", self.NO_RESPONSE)
                     if search_query != self.NO_RESPONSE:
-                        return search_query
+                        filter = ""
+                        return search_query, filter
                 if function.name == "filter_by_modified_on":
                     arg = json.loads(function.arguments)
                     search_query = arg.get("search_query")
