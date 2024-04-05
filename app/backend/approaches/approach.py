@@ -38,6 +38,7 @@ class Document:
     sourcepage: Optional[str]
     sourcefile: Optional[str]
     oids: Optional[List[str]]
+    modified_on: Optional[str]
     groups: Optional[List[str]]
     captions: List[QueryCaptionResult]
     score: Optional[float] = None
@@ -52,6 +53,7 @@ class Document:
             "category": self.category,
             "sourcepage": self.sourcepage,
             "sourcefile": self.sourcefile,
+            "modified_on": self.modified_on,
             "oids": self.oids,
             "groups": self.groups,
             "captions": (
@@ -156,6 +158,18 @@ class Approach(ABC):
                 search_text=query_text or "", filter=filter, top=top, vector_queries=vectors
             )
 
+        if query_text.startswith("sourcefile eq"):
+            filter = f"{query_text}"
+            results = await self.search_client.search("", filter=filter, top=top)
+            print(f"\n\n\n########################################\nsearching by filename: {query_text}\n########################################\n\n\n")
+
+        if query_text.startswith("modified_on"):
+            if " and " in query_text:
+                query_text = query_text.replace(" and ", " and modified_on ")
+            filter = f"{query_text}"
+            results = await self.search_client.search("", filter=filter, top=10, select="sourcepage, modified_on")
+            print(f"\n\n\n########################################\nfilter by date: {filter}\n########################################\n\n\n")
+
         documents = []
         async for page in results.by_page():
             async for document in page:
@@ -168,6 +182,7 @@ class Approach(ABC):
                         category=document.get("category"),
                         sourcepage=document.get("sourcepage"),
                         sourcefile=document.get("sourcefile"),
+                        modified_on=document.get("modified_on"),
                         oids=document.get("oids"),
                         groups=document.get("groups"),
                         captions=cast(List[QueryCaptionResult], document.get("@search.captions")),
@@ -199,7 +214,7 @@ class Approach(ABC):
             ]
         else:
             return [
-                (self.get_citation((doc.sourcepage or ""), use_image_citation)) + ": " + nonewlines(doc.content or "")
+                (self.get_citation((doc.sourcepage or ""), use_image_citation)) + ": " + nonewlines(doc.content or "") + "; modified_on: " + nonewlines(doc.modified_on or "")
                 for doc in results
             ]
 

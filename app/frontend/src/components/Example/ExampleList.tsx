@@ -3,8 +3,8 @@ import { Example } from "./Example";
 import styles from "./Example.module.css";
 
 const DEFAULT_EXAMPLES: string[] = [
-    "What is included in my Northwind Health Plus plan that is not in standard?",
-    "What happens in a performance review?",
+    "DateTimeOffset für datensätze zwsichen dem 1.1.24 und dem 1.4.24",
+    "sum up specific filename: Benefit_Options.pdf and employee_handbook.pdf and role_libary.pdf",
     "What does a Product Manager do?"
 ];
 

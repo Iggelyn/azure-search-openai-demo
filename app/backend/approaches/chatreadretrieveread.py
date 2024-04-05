@@ -117,7 +117,46 @@ class ChatReadRetrieveReadApproach(ChatApproach):
                         "required": ["search_query"],
                     },
                 },
-            }
+            },
+            {
+            "type": "function",
+            "function": {
+                "name": "search_by_filename",
+                "description": "Retrieve specific filenames from the Azure AI Search index",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "filenames": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "The filenames, like ['Paper.pdf', 'SuppInfo.pdf']"
+                        }
+                    },
+                    "required": ["filenames"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "filter_by_modified_on",
+                    "description": "Retrieve DateTimeOffset from and OData condition term for the Azure AI Search index to filter on Date",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "modified_on": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "Query string to retrieve DateTimeOffset and Odata-Condition from azure search eg: gt 2024-04-03T09:45:10.975Z. Converte any Datetime in the DateTimeOffset form, if no time is given set it to 00:00:00.000Z. You need to figure out the operator for the Odataexpression like gt, lt, eq, le, ge",
+                            }
+                        },
+                        "required": ["modified_on"],
+                    },
+                },
+            },
+
         ]
 
         # STEP 1: Generate an optimized keyword search query based on the chat history and the last question
