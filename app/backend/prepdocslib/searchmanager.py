@@ -102,6 +102,7 @@ class SearchManager:
                 ),
                 SimpleField(name="category", type="Edm.String", filterable=True, facetable=True),
                 SimpleField(name="filepath", type="Edm.String", filterable=True, facetable=True),
+                SimpleField(name="page", type="Edm.Int32", filterable=True),
                 SimpleField(name="modified_on", type="Edm.DateTimeOffset", filterable=True, sortable=True),
                 SimpleField(
                     name="sourcepage",
@@ -211,7 +212,8 @@ class SearchManager:
                         "sourcefile": section.content.filename(),
                         **section.content.acls,
                         "modified_on": section.content.modified_on_date().isoformat() if section.content.modified_on_date() else None,
-                        "filepath": section.content.filepath()
+                        "filepath": section.content.filepath() + section.content.filename(),
+                        "page": section.split_page.page_num
                     }
                     for section_index, section in enumerate(batch)
                 ]

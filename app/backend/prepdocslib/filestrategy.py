@@ -28,9 +28,11 @@ async def parse_file(
     if image_embeddings:
         logger.warning("Each page will be split into smaller chunks of text, but images will be of the entire page.")
     modified_on_date = file.modified_on_date()
-    filepath = file.filepath()        
+    filepath = file.filepath()
+    page = file.close()
+           
     sections = [
-        Section(split_page, content=file, category=category) for split_page in processor.splitter.split_pages(pages)
+        Section(split_page, content=file, category=category, modified_on=modified_on_date, filepath=filepath) for split_page in processor.splitter.split_pages(pages)
     ]
     return sections
 

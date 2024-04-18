@@ -1,3 +1,4 @@
+from enum import Enum
 import os
 from abc import ABC
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from typing import (
     TypedDict,
     Union,
     cast,
+    Tuple
 )
 from urllib.parse import urljoin
 
@@ -27,6 +29,10 @@ from openai import AsyncOpenAI
 from core.authentication import AuthenticationHelper
 from text import nonewlines
 
+class FunctionCall(Enum):
+        SEARCH_BY_FILENAME = 1,
+        FILTER_BY_MODIFIED_ON = 2,
+        NONE = 0
 
 @dataclass
 class Document:
@@ -139,7 +145,7 @@ class Approach(ABC):
         use_semantic_captions: bool,
         minimum_search_score: Optional[float],
         minimum_reranker_score: Optional[float],
-    ) -> List[Document]:
+    ) -> Tuple[List[Document], FunctionCall]:
         # Use semantic ranker if requested and if retrieval mode is text or hybrid (vectors + text)
         semantic_results = None
         vector_results = None
@@ -161,13 +167,17 @@ class Approach(ABC):
                 search_text=query_text or "", filter=filter, top=top, vector_queries=vectors
             )
         fuction_filter = None
-        if filter and filter.startswith("modified_on"):
-            fuction_filter = await self.search_client.search(search_text=query_text or "", filter=filter, top=top)
-            print(f"\n\n\n########################################\nfilter by date: {fuction_filter}\n########################################\n\n\n")
-
+        functioncall = FunctionCall.NONE
+        
         if filter and filter.startswith("sourcefile eq"):
             fuction_filter = await self.search_client.search(search_text=query_text or "", filter=filter, top=top)
-            print(f"\n\n\n########################################\nsearching by filename: {fuction_filter}\n########################################\n\n\n")
+            functioncall = FunctionCall.SEARCH_BY_FILENAME
+            print(f"\n\n\n########################################\nsearching by filename: {filter}\n########################################\n\n\n")
+
+        if filter and filter.startswith("modified_on"):
+            fuction_filter = await self.search_client.search(search_text=query_text or "", filter=filter, top=30, select="sourcefile, sourcepage")
+            functioncall = FunctionCall.FILTER_BY_MODIFIED_ON
+            print(f"\n\n\n########################################\nfilter by date: {filter}\n########################################\n\n\n")
 
         documents = []
         if fuction_filter is not None:
@@ -187,6 +197,7 @@ class Approach(ABC):
                                 sourcepage=document.get("sourcepage"),
                                 sourcefile=document.get("sourcefile"),
                                 modified_on=document.get("modified_on"),
+                                
                                 oids=document.get("oids"),
                                 groups=document.get("groups"),
                                 captions=cast(List[QueryCaptionResult], document.get("@search.captions")),
@@ -204,10 +215,10 @@ class Approach(ABC):
                 )
             ]
 
-        return qualified_documents
+        return qualified_documents, functioncall
 
     def get_sources_content(
-        self, results: List[Document], use_semantic_captions: bool, use_image_citation: bool
+        self, results: List[Document], use_semantic_captions: bool, functioncall: FunctionCall, use_image_citation: bool
     ) -> list[str]:
         if use_semantic_captions:
             return [
@@ -217,10 +228,22 @@ class Approach(ABC):
                 for doc in results
             ]
         else:
-            return [
-                (self.get_citation((doc.sourcepage or ""), use_image_citation)) + ": " + nonewlines(doc.content or "") + "; last modified on: " + nonewlines(doc.modified_on or "")
-                for doc in results
-            ]
+            match functioncall:
+                case FunctionCall.SEARCH_BY_FILENAME:
+                    return [
+                        (self.get_citation((doc.sourcepage or ""), use_image_citation)) + ": " + nonewlines(doc.content or "")
+                        for doc in results
+                    ]
+                case FunctionCall.FILTER_BY_MODIFIED_ON:
+                    return [
+                        (self.get_citation((doc.sourcepage or ""), True))# + "; last modified on: " + nonewlines(doc.modified_on or "")
+                        for doc in results
+                    ]
+                case NONE:
+                    return [
+                        (self.get_citation((doc.sourcepage or ""), use_image_citation)) + ": " + nonewlines(doc.content or "")
+                        for doc in results
+                    ]
 
     def get_citation(self, sourcepage: str, use_image_citation: bool) -> str:
         if use_image_citation:
@@ -276,3 +299,5 @@ class Approach(ABC):
         self, messages: list[dict], stream: bool = False, session_state: Any = None, context: dict[str, Any] = {}
     ) -> Union[dict[str, Any], AsyncGenerator[dict[str, Any], None]]:
         raise NotImplementedError
+    
+

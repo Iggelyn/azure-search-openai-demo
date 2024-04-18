@@ -8,7 +8,7 @@ from openai.types.chat import (
     ChatCompletionChunk,
     ChatCompletionToolParam,
 )
-
+from approaches.approach import FunctionCall
 from approaches.approach import ThoughtStep
 from approaches.chatapproach import ChatApproach
 from core.authentication import AuthenticationHelper
@@ -188,8 +188,10 @@ class ChatReadRetrieveReadApproach(ChatApproach):
             tool_choice="auto",
         )
 
-        query_text = self.get_search_query(chat_completion, original_user_query)
-
+        query_text, function_filter = self.get_search_query(chat_completion, original_user_query)
+        
+        if function_filter:
+            filter = f"{filter} and {function_filter}" if filter else f"{function_filter}"
         # STEP 2: Retrieve relevant documents from the search index with the GPT optimized query
 
         # If retrieval mode includes vectors, compute an embedding for the query
@@ -201,7 +203,7 @@ class ChatReadRetrieveReadApproach(ChatApproach):
         if not has_text:
             query_text = None
 
-        results = await self.search(
+        results, functioncall = await self.search(
             top,
             query_text,
             filter,
@@ -212,8 +214,12 @@ class ChatReadRetrieveReadApproach(ChatApproach):
             minimum_reranker_score,
         )
 
-        sources_content = self.get_sources_content(results, use_semantic_captions, use_image_citation=False)
-        content = "\n".join(sources_content)
+        sources_content = self.get_sources_content(results, use_semantic_captions, functioncall, use_image_citation=False)
+        content = ""
+        match functioncall:
+                case FunctionCall.FILTER_BY_MODIFIED_ON:
+                   content = "Hier die Liste der Dateinamen die den kriterien entsprechen:"
+        content += "\n".join(sources_content)
 
         # STEP 3: Generate a contextual and content specific answer using the search results and chat history
 

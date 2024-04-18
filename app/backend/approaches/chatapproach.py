@@ -88,7 +88,7 @@ class ChatApproach(Approach, ABC):
                     pre_filter = arg.get("modified_on")
                     if " and " in pre_filter:
                         pre_filter = pre_filter.replace(" and ", " and modified_on ")
-                    filter = f"modified_on {pre_filter}"
+                    filter = f"modified_on {pre_filter} and page eq 0"
                     return search_query, filter
                 if function.name == "search_by_filename":
                     arg = json.loads(function.arguments)
