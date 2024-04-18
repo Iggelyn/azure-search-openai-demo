@@ -70,7 +70,7 @@ class ChatApproach(Approach, ABC):
 
     def get_search_query(self, chat_completion: ChatCompletion, user_query: str):
         response_message = chat_completion.choices[0].message
-
+        filter = ""
         if response_message.tool_calls:
             for tool in response_message.tool_calls:
                 if tool.type != "function":
@@ -80,7 +80,6 @@ class ChatApproach(Approach, ABC):
                     arg = json.loads(function.arguments)
                     search_query = arg.get("search_query", self.NO_RESPONSE)
                     if search_query != self.NO_RESPONSE:
-                        filter = ""
                         return search_query, filter
                 if function.name == "filter_by_modified_on":
                     arg = json.loads(function.arguments)
@@ -99,8 +98,8 @@ class ChatApproach(Approach, ABC):
                     return search_query, filter
         elif query_text := response_message.content:
             if query_text.strip() != self.NO_RESPONSE:
-                return query_text
-        return user_query
+                return query_text, filter
+        return user_query, filter
 
     def extract_followup_questions(self, content: str):
         return content.split("<<")[0], re.findall(r"<<([^>>]+)>>", content)

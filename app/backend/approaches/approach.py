@@ -44,6 +44,8 @@ class Document:
     sourcepage: Optional[str]
     sourcefile: Optional[str]
     modified_on: Optional[str]
+    path: Optional[str]
+    page: Optional[int]
     oids: Optional[List[str]]
     groups: Optional[List[str]]
     captions: List[QueryCaptionResult]
@@ -60,6 +62,8 @@ class Document:
             "sourcepage": self.sourcepage,
             "sourcefile": self.sourcefile,
             "modified_on": self.modified_on,
+            "page": self.page,
+            "path": self.path,
             "oids": self.oids,
             "groups": self.groups,
             "captions": (
@@ -175,7 +179,7 @@ class Approach(ABC):
             print(f"\n\n\n########################################\nsearching by filename: {filter}\n########################################\n\n\n")
 
         if filter and filter.startswith("modified_on"):
-            fuction_filter = await self.search_client.search(search_text=query_text or "", filter=filter, top=30, select="sourcefile, sourcepage")
+            fuction_filter = await self.search_client.search(search_text=query_text or "", filter=filter, top=30)
             functioncall = FunctionCall.FILTER_BY_MODIFIED_ON
             print(f"\n\n\n########################################\nfilter by date: {filter}\n########################################\n\n\n")
 
@@ -197,7 +201,8 @@ class Approach(ABC):
                                 sourcepage=document.get("sourcepage"),
                                 sourcefile=document.get("sourcefile"),
                                 modified_on=document.get("modified_on"),
-                                
+                                page=document.get("page"),
+                                path=document.get("filepath"),
                                 oids=document.get("oids"),
                                 groups=document.get("groups"),
                                 captions=cast(List[QueryCaptionResult], document.get("@search.captions")),
@@ -236,7 +241,7 @@ class Approach(ABC):
                     ]
                 case FunctionCall.FILTER_BY_MODIFIED_ON:
                     return [
-                        (self.get_citation((doc.sourcepage or ""), True))# + "; last modified on: " + nonewlines(doc.modified_on or "")
+                        (self.get_citation((doc.sourcefile or ""), True))# + "; last modified on: " + nonewlines(doc.modified_on or "")
                         for doc in results
                     ]
                 case NONE:

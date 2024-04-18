@@ -7,6 +7,7 @@ from openai import AsyncOpenAI
 from approaches.approach import Approach, ThoughtStep
 from core.authentication import AuthenticationHelper
 from core.messagebuilder import MessageBuilder
+from approaches.approach import FunctionCall
 
 
 class RetrieveThenReadApproach(Approach):
@@ -94,7 +95,7 @@ info4.pdf: In-network institutions include Overlake, Swedish and others in the r
         # Only keep the text query if the retrieval mode uses text, otherwise drop it
         query_text = q if has_text else None
 
-        results = await self.search(
+        results, functioncall = await self.search(
             top,
             query_text,
             filter,
@@ -112,7 +113,7 @@ info4.pdf: In-network institutions include Overlake, Swedish and others in the r
         message_builder = MessageBuilder(template, model)
 
         # Process results
-        sources_content = self.get_sources_content(results, use_semantic_captions, use_image_citation=False)
+        sources_content = self.get_sources_content(results, use_semantic_captions, functioncall, use_image_citation=False)
 
         # Append user message
         content = "\n".join(sources_content)
